@@ -39,6 +39,22 @@ app.get("/", (req, res) => {
     },
   });
 });
+// Health check endpoint for Zeabur
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
+});
+
+// Also add a simple root endpoint if not present
+app.get("/", (req, res) => {
+  res.status(200).json({
+    message: "VibeMusic Backend is running!",
+    environment: process.env.NODE_ENV || "development",
+  });
+});
 
 // Error handling (when something goes wrong in kitchen)
 app.use((err, req, res, next) => {
@@ -51,9 +67,9 @@ app.use((err, req, res, next) => {
 
 // Start the server (open our restaurant)
 const PORT = config.PORT;
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Server running on port ${PORT}`);
-  console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📡 Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(`📁 Uploads folder: ${config.UPLOAD_DIR}`);
   // Don't log API_URL here - it's for frontend use
 });
