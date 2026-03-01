@@ -51,8 +51,9 @@ app.use((err, req, res, next) => {
 
 // Start the server (open our restaurant)
 const PORT = config.PORT;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Server running at: ${config.API_URL}`);
-  console.log(`📡 API URL: ${config.API_URL}/api`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📁 Uploads folder: ${config.UPLOAD_DIR}`);
+  // Don't log API_URL here - it's for frontend use
 });
