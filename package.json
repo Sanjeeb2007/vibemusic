@@ -8,7 +8,7 @@
     "dev": "nodemon server.js",
     "clean": "rm -rf downloads/* uploads/*",
     "build": "npm install",  
-    "postinstall": "npm list"
+     "postinstall": "echo '✅ Dependencies installed'"
   },
   "dependencies": {
     "@distube/ytdl-core": "^4.16.12",

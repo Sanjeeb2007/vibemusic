@@ -8,14 +8,37 @@ const execPromise = util.promisify(exec);
 
 class YtDlpService {
   constructor() {
-    this.ytDlpPath = path.join(__dirname, "../../bin/yt-dlp.exe");
+    // Detect platform and set appropriate yt-dlp binary
+    this.isWindows = process.platform === 'win32';
+    this.ytDlpPath = this.isWindows 
+      ? path.join(__dirname, "../../bin/yt-dlp.exe")
+      : "yt-dlp"; // On Linux, use system yt-dlp
+    
     this.uploadsDir = path.join(__dirname, "../../uploads");
     this.ensureDirectories();
+    
+    console.log(`🖥️ Platform: ${process.platform}`);
+    console.log(`📁 yt-dlp path: ${this.ytDlpPath}`);
   }
 
   async ensureDirectories() {
     await fs.ensureDir(this.uploadsDir);
-    console.log("📁 Uploads folder ready!");
+    console.log("📁 Uploads folder ready at:", this.uploadsDir);
+  }
+
+  async checkYtDlp() {
+    try {
+      const command = this.isWindows 
+        ? `"${this.ytDlpPath}" --version`
+        : "yt-dlp --version";
+      
+      const { stdout } = await execPromise(command);
+      console.log(`✅ yt-dlp version: ${stdout.trim()}`);
+      return true;
+    } catch (error) {
+      console.error("❌ yt-dlp not available:", error.message);
+      return false;
+    }
   }
 
   async getVideoInfo(url) {
@@ -24,8 +47,14 @@ class YtDlpService {
 
       const cleanUrl = url.split("?")[0];
 
-      // Get JSON info from yt-dlp
-      const command = `"${this.ytDlpPath}" --dump-json --no-playlist "${cleanUrl}"`;
+      // Build command based on platform
+      let command;
+      if (this.isWindows) {
+        command = `"${this.ytDlpPath}" --dump-json --no-playlist "${cleanUrl}"`;
+      } else {
+        command = `yt-dlp --dump-json --no-playlist "${cleanUrl}"`;
+      }
+      
       console.log("🎬 Running:", command);
 
       const { stdout, stderr } = await execPromise(command);
@@ -47,8 +76,6 @@ class YtDlpService {
     }
   }
 
-  // Replace your downloadAudio function with this corrected version:
-
   async downloadAudio(url) {
     const orderId = uuidv4();
 
@@ -61,21 +88,44 @@ class YtDlpService {
         `${orderId}_%(title)s.%(ext)s`,
       );
 
-      // ✅ CORRECTED COMMAND with proper Windows quoting
-      const command = [
-        `"${this.ytDlpPath}"`,
-        `"${cleanUrl}"`,
-        "-f",
-        "bestaudio[ext=m4a]",
-        "--no-playlist",
-        "--no-check-certificate",
-        "--add-header",
-        '"Referer:https://www.youtube.com/"', // ✅ Quoted
-        "--add-header",
-        '"User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"', // ✅ Fully quoted
-        "-o",
-        `"${outputTemplate}"`,
-      ].join(" ");
+      // Build command based on platform
+      let command;
+      if (this.isWindows) {
+        // Windows command with proper quoting
+        command = [
+          `"${this.ytDlpPath}"`,
+          `"${cleanUrl}"`,
+          "-f",
+          "bestaudio[ext=m4a]",
+          "--no-playlist",
+          "--no-check-certificate",
+          "--add-header",
+          '"Referer:https://www.youtube.com/"',
+          "--add-header",
+          '"User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"',
+          "-o",
+          `"${outputTemplate}"`,
+        ].join(" ");
+      } else {
+        // Linux command - simpler
+        command = [
+          "yt-dlp",
+          `"${cleanUrl}"`,
+          "-f",
+          "bestaudio",
+          "--extract-audio",
+          "--audio-format",
+          "mp3",
+          "--no-playlist",
+          "--no-check-certificate",
+          "--add-header",
+          "Referer:https://www.youtube.com/",
+          "--add-header",
+          "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "-o",
+          `"${outputTemplate}"`,
+        ].join(" ");
+      }
 
       console.log("🎬 Running download command...");
       console.log("📋 Command:", command);
@@ -112,6 +162,7 @@ class YtDlpService {
       throw error;
     }
   }
+
   async cleanupOldFiles(maxAgeHours = 1) {
     try {
       const files = await fs.readdir(this.uploadsDir);
