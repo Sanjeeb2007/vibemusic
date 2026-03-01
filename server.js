@@ -1,75 +1,103 @@
-// server.js - This is our main kitchen!
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
 require("dotenv").config();
-const config = require("./src/config");
 
-// Import our routes (like different counters in the kitchen)
-const downloadRoutes = require("./src/routes/downloadRoutes");
+console.log("🚀 Starting server...");
+console.log("Current directory:", __dirname);
+console.log("Node version:", process.version);
 
-// Create the express app (set up our kitchen)
-const app = express();
+try {
+  // Try to load dependencies with error handling
+  const modules = {
+    express: () => require("express"),
+    cors: () => require("cors"),
+    dotenv: () => require("dotenv"),
+    // Add others as needed
+  };
 
-// Middleware (like kitchen rules)
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
-); // Allow anyone to order from our kitchen
-app.use(express.json()); // Understand JSON orders
-app.use(express.urlencoded({ extended: true })); // Understand form data
+  for (const [name, loader] of Object.entries(modules)) {
+    try {
+      loader();
+      console.log(`✅ Module ${name} loaded`);
+    } catch (err) {
+      console.error(`❌ Failed to load ${name}:`, err.message);
+    }
+  }
+} catch (err) {
+  console.error("❌ Dependency check failed:", err);
+}
 
-// Serve static files (make downloaded files available)
-app.use("/downloads", express.static(path.join(__dirname, "downloads")));
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Add process-level error handlers
+process.on("uncaughtException", (err) => {
+  console.error("❌ UNCAUGHT EXCEPTION:", err);
+  console.error(err.stack);
+  process.exit(1);
+});
 
-// Use our routes (direct customers to the right counter)
-app.use("/api", downloadRoutes);
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("❌ UNHANDLED REJECTION:", reason);
+});
 
-// Home route (welcome message)
-app.get("/", (req, res) => {
-  res.json({
-    message: "Welcome to VibeMusic Backend!",
-    endpoints: {
-      download: "POST /api/download",
-      info: "GET /api/info?url=YOUTUBE_URL",
-    },
+try {
+  console.log("🚀 Starting server initialization...");
+
+  const config = require("./src/config");
+  console.log("✅ Config loaded:", {
+    port: config.PORT,
+    isDev: config.isDev,
+    uploadDir: config.UPLOAD_DIR,
   });
-});
-// Health check endpoint for Zeabur
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    status: "healthy",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  });
-});
 
-// Also add a simple root endpoint if not present
-app.get("/", (req, res) => {
-  res.status(200).json({
-    message: "VibeMusic Backend is running!",
-    environment: process.env.NODE_ENV || "development",
-  });
-});
+  const downloadRoutes = require("./src/routes/downloadRoutes");
+  console.log("✅ Routes loaded");
 
-// Error handling (when something goes wrong in kitchen)
-app.use((err, req, res, next) => {
-  console.error("Kitchen Error:", err);
-  res.status(500).json({
-    error: "Something went wrong in our kitchen!",
-    details: err.message,
-  });
-});
+  const app = express();
+  console.log("✅ Express app created");
 
-// Start the server (open our restaurant)
-const PORT = config.PORT;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Server running on port ${PORT}`);
-  console.log(`📡 Environment: ${process.env.NODE_ENV || "development"}`);
-  console.log(`📁 Uploads folder: ${config.UPLOAD_DIR}`);
-  // Don't log API_URL here - it's for frontend use
-});
+  // Middleware
+  app.use(cors({ origin: "*" }));
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+  console.log("✅ Middleware configured");
+
+  // Static folders
+  app.use("/downloads", express.static(path.join(__dirname, "downloads")));
+  app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+  console.log("✅ Static folders configured");
+
+  // Routes
+  app.use("/api", downloadRoutes);
+  console.log("✅ API routes mounted");
+
+  // Health check
+  app.get("/health", (req, res) => {
+    res.status(200).json({ status: "healthy", time: Date.now() });
+  });
+
+  app.get("/", (req, res) => {
+    res.json({ message: "VibeMusic Backend Running" });
+  });
+
+  // Error handler
+  app.use((err, req, res, next) => {
+    console.error("❌ App error:", err);
+    res.status(500).json({ error: err.message });
+  });
+
+  const PORT = config.PORT || 3000;
+
+  // Start server with error handling
+  const server = app.listen(PORT, "0.0.0.0", () => {
+    console.log(`✅✅✅ SERVER STARTED SUCCESSFULLY on port ${PORT}`);
+    console.log(`🌐 Health check: http://localhost:${PORT}/health`);
+  });
+
+  server.on("error", (err) => {
+    console.error("❌ Server failed to start:", err);
+  });
+} catch (err) {
+  console.error("❌ CRITICAL ERROR DURING STARTUP:", err);
+  console.error(err.stack);
+  process.exit(1);
+}

@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "clean": "rm -rf downloads/* uploads/*"
+    "clean": "rm -rf downloads/* uploads/*",
+    "build": "npm install",  
+    "postinstall": "npm list"
   },
   "dependencies": {
     "@distube/ytdl-core": "^4.16.12",
