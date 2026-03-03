@@ -1,4 +1,4 @@
-const ytDlp = require("yt-dlp-exec");
+const ytDlp = require('youtube-dl-exec');
 const path = require("path");
 const fs = require("fs-extra");
 const { v4: uuidv4 } = require("uuid");
