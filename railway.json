@@ -1,7 +1,5 @@
 {
-  "build": {
-    "type": "dockerfile"
-  },
+
   "start": {
     "command": "node server.js"
   },
