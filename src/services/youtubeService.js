@@ -10,13 +10,17 @@ ffmpeg.setFfmpegPath(ffmpegStatic);
 class YoutubeService {
   constructor() {
     this.uploadsDir = path.join(__dirname, "../../uploads");
-    this.ensureDirectories();
-    console.log("✅ YouTube Service initialized");
+    // Don't block - run async
+    this.initPromise = this.ensureDirectories();
   }
 
   async ensureDirectories() {
-    await fs.ensureDir(this.uploadsDir);
-    console.log("📁 Uploads folder ready:", this.uploadsDir);
+    try {
+      await fs.ensureDir(this.uploadsDir);
+      console.log("📁 Uploads folder ready:", this.uploadsDir);
+    } catch (err) {
+      console.error("❌ Failed to create uploads:", err.message);
+    }
   }
 
   getAgent() {
@@ -36,9 +40,10 @@ class YoutubeService {
   }
 
   async getVideoInfo(url) {
+     await this.initPromise;
     try {
       console.log("📖 Getting info for:", url);
-      
+
       if (!ytdl.validateURL(url)) {
         throw new Error("Invalid YouTube URL");
       }
@@ -59,6 +64,7 @@ class YoutubeService {
   }
 
   async downloadAudio(url) {
+     await this.initPromise; 
     const orderId = uuidv4();
     const outputFileName = `${orderId}.mp3`;
     const outputPath = path.join(this.uploadsDir, outputFileName);
@@ -72,7 +78,7 @@ class YoutubeService {
         }
 
         const info = await ytdl.getInfo(url, { agent: this.getAgent() });
-        
+
         const stream = ytdl(url, {
           quality: "highestaudio",
           filter: "audioonly",
@@ -94,7 +100,7 @@ class YoutubeService {
             try {
               const stats = await fs.stat(outputPath);
               console.log("✅ Download complete:", outputFileName);
-              
+
               resolve({
                 success: true,
                 fileName: outputFileName,
@@ -107,7 +113,6 @@ class YoutubeService {
             }
           })
           .save(outputPath);
-
       } catch (error) {
         console.error("❌ Download error:", error.message);
         reject(error);
@@ -132,7 +137,7 @@ class YoutubeService {
           cleaned++;
         }
       }
-      
+
       if (cleaned > 0) console.log(`🧹 Total cleaned: ${cleaned} files`);
     } catch (error) {
       console.error("Cleanup error:", error.message);
