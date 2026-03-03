@@ -21,19 +21,11 @@ app.use("/api", downloadRoutes);
 
 // Quick health check (must respond fast!)
 app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy', 
-    time: Date.now(),
-    uptime: process.uptime()
-  });
+  res.status(200).send('OK');
 });
 
-app.get('/', (req, res) => {
-  res.json({ 
-    message: 'VibeMusic API is running',
-    version: '1.0.0',
-    endpoints: ['/health', '/api/test', '/api/info', '/api/download', '/api/stream']
-  });
+app.get('/ready', (req, res) => {
+  res.status(200).json({ status: 'ready', time: Date.now() });
 });
 
 // Error handler
