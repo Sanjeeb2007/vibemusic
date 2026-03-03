@@ -5,90 +5,58 @@ const fs = require("fs-extra");
 require("dotenv").config();
 
 const app = express();
+
+// Middleware
 app.use(cors({ origin: "*" }));
-app.use(express.json()); // You need this for POST requests
+app.use(express.json());
 
 // Create uploads directory
 const uploadsDir = path.join(__dirname, "uploads");
 fs.ensureDirSync(uploadsDir);
 app.use("/uploads", express.static(uploadsDir));
 
-// Import YOUR routes
+// Import routes
 const downloadRoutes = require("./src/routes/downloadRoutes");
 app.use("/api", downloadRoutes);
 
-// Health check
+// Start cleanup service
+require("./src/utils/fileCleanup");
+
+// Health check endpoint
 app.get("/health", (req, res) => {
-  res.json({ status: "online", server: "VibeMusic API" });
+  res.json({ 
+    status: "online", 
+    time: new Date().toISOString(),
+    server: "VibeMusic API",
+    endpoints: {
+      info: "/api/info?url=YOUTUBE_URL",
+      download: "POST /api/download",
+      stream: "/api/stream/:filename",
+      test: "/api/test"
+    }
+  });
 });
 
-// Keep your streaming endpoint if needed, or remove if using controller
-app.get("/stream", async (req, res) => {
-  try {
-    const ytdl = require("@distube/ytdl-core");
-    const ffmpeg = require("fluent-ffmpeg");
-    const ffmpegStatic = require("ffmpeg-static");
-    
-    ffmpeg.setFfmpegPath(ffmpegStatic);
-    
-    const { url } = req.query;
-    if (!url) return res.status(400).json({ error: "URL required" });
-
-    const info = await ytdl.getInfo(url, {
-      agent: ytdl.createAgent([{
-        domain: ".youtube.com",
-        name: "CONSENT",
-        value: "YES+cb.20210328-17-p0.en+FX+{}",
-        path: "/",
-        secure: true,
-        httpOnly: true,
-        sameSite: "no_restriction",
-        hostOnly: false,
-        expirationDate: 9999999999
-      }])
-    });
-
-    const safeTitle = info.videoDetails.title
-      .replace(/[^\w\s]/gi, '')
-      .substring(0, 50);
-    
-    res.setHeader('Content-Type', 'audio/mpeg');
-    res.setHeader('Content-Disposition', `attachment; filename="${safeTitle}.mp3"`);
-    
-    console.log(`🎵 Streaming: ${info.videoDetails.title}`);
-
-    const stream = ytdl(url, {
-      quality: "highestaudio",
-      filter: "audioonly",
-      highWaterMark: 1 << 25,
-      agent: ytdl.createAgent([{
-        domain: ".youtube.com",
-        name: "CONSENT",
-        value: "YES+cb.20210328-17-p0.en+FX+{}",
-        path: "/",
-        secure: true,
-        httpOnly: true,
-        sameSite: "no_restriction",
-        hostOnly: false,
-        expirationDate: 9999999999
-      }])
-    });
-
-    ffmpeg(stream)
-      .audioBitrate(128)
-      .format("mp3")
-      .on("error", (err) => {
-        console.error("❌ Error:", err.message);
-      })
-      .pipe(res);
-
-  } catch (error) {
-    console.error("❌ Stream error:", error.message);
-    res.status(500).json({ error: error.message });
-  }
+// Root endpoint
+app.get("/", (req, res) => {
+  res.json({
+    message: "🎵 VibeMusic Backend API",
+    status: "running",
+    docs: "/health for endpoints"
+  });
 });
 
+// Error handler
+app.use((err, req, res, next) => {
+  console.error("❌ Error:", err.message);
+  res.status(500).json({ error: err.message });
+});
+
+// IMPORTANT: Use PORT from environment variable (Zeabur sets this)
 const PORT = process.env.PORT || 3000;
+
+// IMPORTANT: Bind to 0.0.0.0 (required for Zeabur)
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ VibeMusic API running on port ${PORT}`);
+  console.log(`🌐 Health check: http://localhost:${PORT}/health`);
 });
