@@ -4,5 +4,6 @@
   },
   "start": {
     "command": "node server.js"
-  }
+  },
+   "port": 8080
 }

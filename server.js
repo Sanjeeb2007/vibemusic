@@ -53,7 +53,7 @@ app.use((err, req, res, next) => {
 });
 
 // IMPORTANT: Use PORT from environment variable (Zeabur sets this)
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // IMPORTANT: Bind to 0.0.0.0 (required for Zeabur)
 app.listen(PORT, '0.0.0.0', () => {
