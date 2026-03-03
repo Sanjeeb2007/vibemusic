@@ -42,7 +42,7 @@ app.use((err, req, res, next) => {
 });
 
 // START SERVER IMMEDIATELY
-const PORT = 8080;
+const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ VibeMusic API running on port ${PORT}`);
   console.log(`🌐 Server ready on 0.0.0.0:${PORT}`);
