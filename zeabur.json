@@ -1,9 +1,9 @@
 {
   "build": {
-    "command": "npm install"
+    "type": "dockerfile"
   },
   "start": {
     "command": "node server.js"
   },
-   "port": 8080
+   "port": 3000
 }
