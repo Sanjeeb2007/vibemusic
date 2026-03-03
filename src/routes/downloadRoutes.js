@@ -1,34 +1,47 @@
-// src/routes/downloadRoutes.js - This is our menu!
-console.log("🚀 Loading downloadRoutes module");
 const express = require("express");
 const router = express.Router();
-console.log("✅ downloadRoutes router created");
 const downloadController = require("../controllers/downloadController");
 
-// Route to get video info (GET request - like looking at menu)
-router.get("/info", (req, res) => downloadController.getInfo(req, res));
-
+// Test route - MUST be first
 router.get("/test", (req, res) => {
-  res.json({ message: "Route test working" });
+  console.log("✅ /api/test hit");
+  res.json({ 
+    message: "API test working!", 
+    time: new Date().toISOString(),
+    endpoints: ["/api/info", "/api/download", "/api/stream"]
+  });
 });
 
-// Route to download (POST request - like placing an order)
-router.post("/download", (req, res) => downloadController.download(req, res));
+// Get video info
+router.get("/info", async (req, res) => {
+  try {
+    await downloadController.getInfo(req, res);
+  } catch (err) {
+    console.error("Info error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
-// Route to stream file (GET request - like picking up your order)
-router.get("/stream/:filename", (req, res) =>
-  downloadController.stream(req, res),
-);
+// Download audio (POST)
+router.post("/download", async (req, res) => {
+  try {
+    await downloadController.download(req, res);
+  } catch (err) {
+    console.error("Download error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
-// Remove this if you don't have proxyDownload method
-// router.get("/proxy", (req, res) => downloadController.proxyDownload(req, res));
+// Stream file
+router.get("/stream/:filename", async (req, res) => {
+  try {
+    await downloadController.stream(req, res);
+  } catch (err) {
+    console.error("Stream error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
-try {
-  console.log("✅ Routes defined in downloadRoutes");
-} catch (err) {
-  console.error("❌ Error defining routes:", err);
-}
-
-console.log("🚀 downloadRoutes module loaded successfully");
+console.log("✅ Routes loaded: /test, /info, /download, /stream");
 
 module.exports = router;
