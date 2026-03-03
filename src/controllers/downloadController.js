@@ -1,7 +1,7 @@
 const youtubeService = require("../services/youtubeService");
 const path = require("path");
 const fs = require("fs-extra"); // Added missing import
-const config = require("../config");
+const config = require("../config/config");
 
 class DownloadController {
   async getInfo(req, res) {
