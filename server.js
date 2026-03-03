@@ -27,13 +27,7 @@ app.get("/health", (req, res) => {
   res.json({ 
     status: "online", 
     time: new Date().toISOString(),
-    server: "VibeMusic API",
-    endpoints: {
-      info: "/api/info?url=YOUTUBE_URL",
-      download: "POST /api/download",
-      stream: "/api/stream/:filename",
-      test: "/api/test"
-    }
+    server: "VibeMusic API"
   });
 });
 
@@ -41,8 +35,7 @@ app.get("/health", (req, res) => {
 app.get("/", (req, res) => {
   res.json({
     message: "🎵 VibeMusic Backend API",
-    status: "running",
-    docs: "/health for endpoints"
+    status: "running"
   });
 });
 
@@ -52,11 +45,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message });
 });
 
-// IMPORTANT: Use PORT from environment variable (Zeabur sets this)
-const PORT = process.env.PORT || 8080;
+// ⚠️ CRITICAL: Use EXACTLY port 8080 for Zeabur
+const PORT = 8080;
 
-// IMPORTANT: Bind to 0.0.0.0 (required for Zeabur)
+// CRITICAL: Bind to 0.0.0.0 (not localhost)
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ VibeMusic API running on port ${PORT}`);
-  console.log(`🌐 Health check: http://localhost:${PORT}/health`);
+  console.log(`🌐 Server ready on 0.0.0.0:${PORT}`);
 });
