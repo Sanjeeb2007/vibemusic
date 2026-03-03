@@ -24,8 +24,13 @@ app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
 
-app.get('/ready', (req, res) => {
-  res.status(200).json({ status: 'ready', time: Date.now() });
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'VibeMusic API is running',
+    version: '1.0.0',
+    status: 'healthy',
+    endpoints: ['/health', '/api/test', '/api/info', '/api/download', '/api/stream']
+  });
 });
 
 // Error handler
