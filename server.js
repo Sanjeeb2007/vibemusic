@@ -20,18 +20,19 @@ const downloadRoutes = require("./src/routes/downloadRoutes");
 app.use("/api", downloadRoutes);
 
 // Quick health check (must respond fast!)
-app.get("/health", (req, res) => {
-  res.json({ 
-    status: "online", 
-    time: new Date().toISOString(),
-    server: "VibeMusic API"
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy', 
+    time: Date.now(),
+    uptime: process.uptime()
   });
 });
 
-app.get("/", (req, res) => {
-  res.json({
-    message: "🎵 VibeMusic Backend API",
-    status: "running"
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'VibeMusic API is running',
+    version: '1.0.0',
+    endpoints: ['/health', '/api/test', '/api/info', '/api/download', '/api/stream']
   });
 });
 
