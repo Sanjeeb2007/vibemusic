@@ -20,24 +20,23 @@ class YoutubeService {
   }
 
   async checkYtDlp() {
-    try {
-      const { stdout } = await execPromise("yt-dlp --version");
-      console.log(`✅ yt-dlp version ${stdout.trim()} installed`);
-    } catch (error) {
-      console.error(
-        "❌ yt-dlp not found. Please install with: pip3 install yt-dlp",
-      );
-      // Don't throw - let the app continue but downloads will fail
-    }
+  try {
+    const result = await ytDlp('--version');
+    console.log(`✅ yt-dlp ready`);
+  } catch (error) {
+    console.error('❌ yt-dlp-exec error:', error.message);
   }
+}
 
   async getVideoInfo(url) {
     try {
       console.log("📖 Getting info for:", url);
+
       const info = await ytDlp(url, {
         dumpJson: true,
         noPlaylist: true,
       });
+
       return {
         title: info.title,
         duration: parseInt(info.duration),
@@ -50,72 +49,41 @@ class YoutubeService {
       throw new Error(`Failed to get video info: ${error.message}`);
     }
   }
-async downloadAudio(url, res) {
-  const orderId = uuidv4();
+  async downloadAudio(url) {
+    const orderId = uuidv4();
 
-  try {
-    console.log("🎵 Streaming download for order:", orderId);
+    try {
+      console.log("🎵 Starting download:", orderId);
 
-    // First get video info (for metadata/title)
-    const info = await this.getVideoInfo(url);
+      const info = await this.getVideoInfo(url);
 
-    // Set headers for file download
-    res.setHeader("Content-Type", "audio/mpeg");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="vibemusic-${orderId}.mp3"`,
-    );
+      const outputPath = path.join(this.uploadsDir, `${orderId}.mp3`);
 
-    // Stream directly to client - NO FILE SAVED ON SERVER
-    const stream = await ytDlp.exec(url, {
-      extractAudio: true,
-      audioFormat: "mp3",
-      audioQuality: 0,
-      noPlaylist: true,
-      output: "-",
-    });
+      await ytDlp(url, {
+        extractAudio: true,
+        audioFormat: "mp3",
+        audioQuality: 0,
+        noPlaylist: true,
+        output: outputPath,
+      });
 
-    // Log progress (optional)
-    stream.stderr.on("data", (data) => {
-      console.log("yt-dlp progress:", data.toString());
-    });
+      const stats = await fs.stat(outputPath);
+      const fileName = `${orderId}.mp3`;
 
-    // Handle errors
-    stream.on("error", (error) => {
-      console.error("❌ yt-dlp error:", error);
-      if (!res.headersSent) {
-        res.status(500).json({ error: "Download failed" });
-      }
-    });
+      console.log("✅ Download complete:", fileName);
 
-    // When download completes
-    stream.on("close", (code) => {
-      if (code !== 0) {
-        console.error(`❌ yt-dlp exited with code ${code}`);
-      } else {
-        console.log("✅ Streaming complete for order:", orderId);
-      }
-      res.end();
-    });
-
-    // PIPE THE AUDIO STREAM DIRECTLY TO THE RESPONSE
-    stream.stdout.pipe(res);
-
-    // Return metadata (but not file info since we didn't save it)
-    return {
-      success: true,
-      title: info.title,
-      orderId,
-      message: "Streaming started",
-    };
-  } catch (error) {
-    console.error("❌ Download error:", error.message);
-    if (!res.headersSent) {
-      res.status(500).json({ error: error.message });
+      return {
+        success: true,
+        fileName,
+        fileSize: stats.size,
+        title: info.title,
+        orderId,
+      };
+    } catch (error) {
+      console.error("❌ Download error:", error.message);
+      throw error;
     }
-    throw error;
   }
-}
   async cleanupOldFiles(maxAgeHours = 1) {
     try {
       const files = await fs.readdir(this.uploadsDir);
