@@ -1,29 +1,26 @@
-// src/controllers/downloadController.js - This handles customer orders!
-const ytDlpService = require("../services/ytDlpService");
+const youtubeService = require("../services/youtubeService");
 const path = require("path");
+const fs = require("fs-extra"); // Added missing import
 const config = require("../config");
 
 class DownloadController {
-  // Get video info (customer asks: "What's this video about?")
   async getInfo(req, res) {
     try {
       const { url } = req.query;
 
       if (!url) {
-        return res.status(400).json({
-          error: "Please provide a YouTube URL",
-        });
+        return res.status(400).json({ error: "Please provide a YouTube URL" });
       }
 
       console.log("📝 Getting info for:", url);
-      const info = await ytDlpService.getVideoInfo(url);
+      const info = await youtubeService.getVideoInfo(url);
 
       res.json({
         success: true,
         data: info,
       });
     } catch (error) {
-      console.error("Info error:", error);
+      console.error("Info error:", error.message);
       res.status(500).json({
         error: "Failed to get video info",
         details: error.message,
@@ -31,30 +28,20 @@ class DownloadController {
     }
   }
 
-  // Download video as MP3 (customer orders: "Make this an MP3!")
   async download(req, res) {
     try {
       const { url } = req.body;
 
       if (!url) {
-        return res.status(400).json({
-          error: "Please provide a YouTube URL",
-        });
+        return res.status(400).json({ error: "Please provide a YouTube URL" });
       }
 
-      console.log("⬇️ Download request for:", url);
-      console.log("📦 Request body:", req.body);
+      console.log("⬇️ Download request:", url);
+      
+      const result = await youtubeService.downloadAudio(url);
+      
+      const downloadUrl = `${config.API_URL}/uploads/${result.fileName}`;
 
-      // Start the download process
-      const result = await ytDlpService.downloadAudio(url);
-      console.log("✅ Download successful:", result.fileName);
-
-      const encodedFilename = encodeURIComponent(result.fileName);
-      const downloadUrl = `${config.API_URL}/uploads/${encodedFilename}`;
-
-      console.log("📤 Sending download URL:", downloadUrl);
-
-      // Send success response
       res.json({
         success: true,
         message: "Download complete!",
@@ -64,8 +51,7 @@ class DownloadController {
         },
       });
     } catch (error) {
-      console.error("Download error:", error);
-      console.error("❌ Error stack:", error.stack);
+      console.error("Download error:", error.message);
       res.status(500).json({
         error: "Download failed",
         details: error.message,
@@ -73,16 +59,18 @@ class DownloadController {
     }
   }
 
-  // Stream the file directly (like serving food immediately)
   async stream(req, res) {
     try {
       const { filename } = req.params;
       const filePath = path.join(__dirname, "../../uploads", filename);
 
+      if (!await fs.pathExists(filePath)) {
+        return res.status(404).json({ error: "File not found or expired" });
+      }
+
       res.download(filePath, (err) => {
         if (err) {
           console.error("Stream error:", err);
-          res.status(404).json({ error: "File not found" });
         }
       });
     } catch (error) {

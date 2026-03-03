@@ -1,10 +1,9 @@
-// src/utils/fileCleanup.js - This is our cleaning service!
-const youtubeService = require('../services/youtubeService');
+// src/utils/fileCleanup.js
+const ytDlpService = require('../services/ytDlpService'); // Fixed import name
 
-// Run cleanup every hour
 setInterval(async () => {
   console.log('🧹 Running scheduled cleanup...');
-  await youtubeService.cleanupOldFiles(24); // Remove files older than 24 hours
-}, 60 * 60 * 1000); // Every hour
+  await ytDlpService.cleanupOldFiles(1);
+}, 60 * 60 * 1000);
 
 console.log('⏰ Cleanup scheduler started');

@@ -2,5 +2,7 @@
   "build": {
     "command": "npm install"
   },
-  "start": "node server.js"
+  "start": {
+    "command": "node server.js"
+  }
 }
