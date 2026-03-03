@@ -1,5 +1,6 @@
+# Railway build config
 [phases.setup]
-nixPkgs = ["python311", "ffmpeg"]
+nixPkgs = ["nodejs_18", "python311", "ffmpeg"]
 
 [phases.install]
 cmds = ["npm ci"]
