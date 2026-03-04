@@ -95,7 +95,7 @@ class YoutubeService {
         const stats = await fs.stat(filePath);
         const ageHours = (now - stats.mtimeMs) / (1000 * 60 * 60);
 
-        if (ageHours > maxAgeHours) {
+        if (ageHours > maxAgeHours && file !== '.gitkeep') {
           await fs.remove(filePath);
           console.log("🧹 Cleaned:", file);
           cleaned++;
