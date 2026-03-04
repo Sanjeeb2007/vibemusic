@@ -28,40 +28,34 @@ class DownloadController {
     }
   }
 
-async download(req, res) {
-  try {
-    const { url } = req.body;
+  async download(req, res) {
+    try {
+      const { url } = req.body;
+      if (!url)
+        return res.status(400).json({ error: "Please provide a YouTube URL" });
 
-    if (!url) {
-      return res.status(400).json({ error: "Please provide a YouTube URL" });
-    }
+      console.log("⬇️ Download request:", url);
+      const orderId = await youtubeService.startDownloadJob(url);
 
-    console.log("⬇️ Download request:", url);
-    
-    // Pass the response object to the service
-    // The service will handle streaming directly
-    await youtubeService.downloadAudio(url, res);
-    
-    // Note: We don't send JSON here because we're streaming audio
-    // The response is handled by the service
-    
-  } catch (error) {
-    console.error("Download error:", error.message);
-    if (!res.headersSent) {
-      res.status(500).json({
-        error: "Download failed",
-        details: error.message,
+      res.json({
+        success: true,
+        message: "Download started",
+        data: { orderId },
       });
+    } catch (error) {
+      console.error("Download error:", error.message);
+      res
+        .status(500)
+        .json({ error: "Download failed", details: error.message });
     }
   }
-}
 
   async stream(req, res) {
     try {
       const { filename } = req.params;
       const filePath = path.join(__dirname, "../../uploads", filename);
 
-      if (!await fs.pathExists(filePath)) {
+      if (!(await fs.pathExists(filePath))) {
         return res.status(404).json({ error: "File not found or expired" });
       }
 

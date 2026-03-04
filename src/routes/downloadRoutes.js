@@ -5,10 +5,10 @@ const downloadController = require("../controllers/downloadController");
 // Test route - MUST be first
 router.get("/test", (req, res) => {
   console.log("✅ /api/test hit");
-  res.json({ 
-    message: "API test working!", 
+  res.json({
+    message: "API test working!",
     time: new Date().toISOString(),
-    endpoints: ["/api/info", "/api/download", "/api/stream"]
+    endpoints: ["/api/info", "/api/download", "/api/stream"],
   });
 });
 
@@ -30,6 +30,13 @@ router.post("/download", async (req, res) => {
     console.error("Download error:", err);
     res.status(500).json({ error: err.message });
   }
+});
+
+router.get("/status/:orderId", (req, res) => {
+  const youtubeService = require("../services/youtubeService");
+  const job = youtubeService.getJobStatus(req.params.orderId);
+  if (!job) return res.status(404).json({ error: "Job not found" });
+  res.json({ success: true, data: job });
 });
 
 // Stream file

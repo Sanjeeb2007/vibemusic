@@ -3,6 +3,8 @@ const path = require("path");
 const fs = require("fs-extra");
 const { v4: uuidv4 } = require("uuid");
 
+const jobs = {}; // 👈 ADD THIS
+
 class YoutubeService {
   constructor() {
     this.uploadsDir = path.join(__dirname, "../../uploads");
@@ -20,13 +22,13 @@ class YoutubeService {
   }
 
   async checkYtDlp() {
-  try {
-    const result = await ytDlp('--version');
-    console.log(`✅ yt-dlp ready`);
-  } catch (error) {
-    console.error('❌ yt-dlp-exec error:', error.message);
+    try {
+      const result = await ytDlp('--version');
+      console.log(`✅ yt-dlp ready`);
+    } catch (error) {
+      console.error('❌ yt-dlp-exec error:', error.message);
+    }
   }
-}
 
   async getVideoInfo(url) {
     try {
@@ -49,6 +51,7 @@ class YoutubeService {
       throw new Error(`Failed to get video info: ${error.message}`);
     }
   }
+
   async downloadAudio(url) {
     const orderId = uuidv4();
 
@@ -56,7 +59,6 @@ class YoutubeService {
       console.log("🎵 Starting download:", orderId);
 
       const info = await this.getVideoInfo(url);
-
       const outputPath = path.join(this.uploadsDir, `${orderId}.mp3`);
 
       await ytDlp(url, {
@@ -84,6 +86,30 @@ class YoutubeService {
       throw error;
     }
   }
+
+  // 👇 ADD THIS METHOD
+  async startDownloadJob(url) {
+    const orderId = uuidv4();
+    jobs[orderId] = { status: 'processing', fileName: null, error: null };
+
+    console.log("🚀 Job started:", orderId);
+
+    this.downloadAudio(url).then(result => {
+      jobs[orderId] = { status: 'done', fileName: result.fileName, title: result.title };
+      console.log("✅ Job complete:", orderId);
+    }).catch(err => {
+      jobs[orderId] = { status: 'error', error: err.message };
+      console.log("❌ Job failed:", orderId, err.message);
+    });
+
+    return orderId;
+  }
+
+  // 👇 ADD THIS METHOD
+  getJobStatus(orderId) {
+    return jobs[orderId] || null;
+  }
+
   async cleanupOldFiles(maxAgeHours = 1) {
     try {
       const files = await fs.readdir(this.uploadsDir);
