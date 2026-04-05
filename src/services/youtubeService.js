@@ -41,12 +41,16 @@ class YoutubeService {
 
   async getVideoInfo(url) {
     console.log("📖 Getting info for:", url);
+
+    // Node.js path so yt-dlp can use it as a JS runtime (fixes "No JS runtime" warning)
+    const nodeRuntime = `node[${process.execPath}]`;
+
     const fallbackStrategies = [
-      { extractorArgs: "youtube:player_client=ios" },
-      { extractorArgs: "youtube:player_client=android_music" },
-      { extractorArgs: "youtube:player_client=android" },
-      {},
-      { userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" }
+      { extractorArgs: "youtube:player_client=tv_embedded", jsRuntimes: nodeRuntime },
+      { extractorArgs: "youtube:player_client=ios", jsRuntimes: nodeRuntime },
+      { extractorArgs: "youtube:player_client=android_music", jsRuntimes: nodeRuntime },
+      { extractorArgs: "youtube:player_client=mweb", jsRuntimes: nodeRuntime },
+      { jsRuntimes: nodeRuntime },
     ];
 
     let lastError;
@@ -55,6 +59,7 @@ class YoutubeService {
         const info = await ytDlp(url, {
           dumpJson: true,
           noPlaylist: true,
+          sleepRequests: '1',
           ...(FFMPEG_DIR ? { ffmpegLocation: FFMPEG_DIR } : {}),
           ...strategy
         });
@@ -84,12 +89,13 @@ class YoutubeService {
       const info = await this.getVideoInfo(url);
       const outputPath = path.join(this.uploadsDir, `${orderId}.mp3`);
 
+      const nodeRuntime = `node[${process.execPath}]`;
       const fallbackStrategies = [
-        { extractorArgs: "youtube:player_client=ios" },
-        { extractorArgs: "youtube:player_client=android_music" },
-        { extractorArgs: "youtube:player_client=android" },
-        {},
-        { userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" }
+        { extractorArgs: "youtube:player_client=tv_embedded", jsRuntimes: nodeRuntime },
+        { extractorArgs: "youtube:player_client=ios", jsRuntimes: nodeRuntime },
+        { extractorArgs: "youtube:player_client=android_music", jsRuntimes: nodeRuntime },
+        { extractorArgs: "youtube:player_client=mweb", jsRuntimes: nodeRuntime },
+        { jsRuntimes: nodeRuntime },
       ];
 
       let success = false;
@@ -97,13 +103,14 @@ class YoutubeService {
 
       for (const strategy of fallbackStrategies) {
         try {
-          console.log("🚀 Attempting download with strategy:", JSON.stringify(strategy) || "Standard");
+          console.log("🚀 Attempting download with strategy:", JSON.stringify(strategy));
           await ytDlp(url, {
             extractAudio: true,
             audioFormat: "mp3",
             audioQuality: 0,
             noPlaylist: true,
             output: outputPath,
+            sleepRequests: '1',
             ...(FFMPEG_DIR ? { ffmpegLocation: FFMPEG_DIR } : {}),
             ...strategy
           });
