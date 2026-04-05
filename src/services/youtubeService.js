@@ -6,6 +6,10 @@ const YTDLP_BIN = path.join(__dirname, '../../bin/yt-dlp');
 const ytDlp = process.platform === 'linux'
   ? require('youtube-dl-exec').create(YTDLP_BIN)
   : require('youtube-dl-exec');
+
+// ffmpeg-static provides a bundled ffmpeg binary for all platforms
+const ffmpegPath = require('ffmpeg-static');
+const FFMPEG_DIR = ffmpegPath ? path.dirname(ffmpegPath) : null;
 const { v4: uuidv4 } = require("uuid");
 
 const jobs = {}; // 👈 ADD THIS
@@ -51,6 +55,7 @@ class YoutubeService {
         const info = await ytDlp(url, {
           dumpJson: true,
           noPlaylist: true,
+          ...(FFMPEG_DIR ? { ffmpegLocation: FFMPEG_DIR } : {}),
           ...strategy
         });
 
@@ -99,6 +104,7 @@ class YoutubeService {
             audioQuality: 0,
             noPlaylist: true,
             output: outputPath,
+            ...(FFMPEG_DIR ? { ffmpegLocation: FFMPEG_DIR } : {}),
             ...strategy
           });
           success = true;
