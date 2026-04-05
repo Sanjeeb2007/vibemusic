@@ -1,4 +1,7 @@
-const ytDlp = require('youtube-dl-exec');
+// Use system yt-dlp on Linux (Render.com), fallback to npm package on Windows (dev)
+const ytDlp = process.platform === 'linux'
+  ? require('youtube-dl-exec').create('/usr/local/bin/yt-dlp')
+  : require('youtube-dl-exec');
 const path = require("path");
 const fs = require("fs-extra");
 const { v4: uuidv4 } = require("uuid");
@@ -31,25 +34,38 @@ class YoutubeService {
   }
 
   async getVideoInfo(url) {
-    try {
-      console.log("📖 Getting info for:", url);
+    console.log("📖 Getting info for:", url);
+    const fallbackStrategies = [
+      { extractorArgs: "youtube:player_client=ios" },
+      { extractorArgs: "youtube:player_client=android_music" },
+      { extractorArgs: "youtube:player_client=android" },
+      {},
+      { userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" }
+    ];
 
-      const info = await ytDlp(url, {
-        dumpJson: true,
-        noPlaylist: true,
-      });
+    let lastError;
+    for (const strategy of fallbackStrategies) {
+      try {
+        const info = await ytDlp(url, {
+          dumpJson: true,
+          noPlaylist: true,
+          ...strategy
+        });
 
-      return {
-        title: info.title,
-        duration: parseInt(info.duration),
-        author: info.uploader,
-        thumbnail: info.thumbnail,
-        videoId: info.id,
-      };
-    } catch (error) {
-      console.error("❌ getVideoInfo error:", error.message);
-      throw new Error(`Failed to get video info: ${error.message}`);
+        return {
+          title: info.title,
+          duration: parseInt(info.duration) || 0,
+          author: info.uploader,
+          thumbnail: info.thumbnail,
+          videoId: info.id,
+        };
+      } catch (error) {
+        console.log(`⚠️ Info strategy failed: ${error.message.substring(0, 100)}`);
+        lastError = error;
+      }
     }
+    console.error("❌ All getVideoInfo strategies failed.");
+    throw new Error(`Failed to get video info: ${lastError.message}`);
   }
 
   async downloadAudio(url) {
@@ -61,13 +77,41 @@ class YoutubeService {
       const info = await this.getVideoInfo(url);
       const outputPath = path.join(this.uploadsDir, `${orderId}.mp3`);
 
-      await ytDlp(url, {
-        extractAudio: true,
-        audioFormat: "mp3",
-        audioQuality: 0,
-        noPlaylist: true,
-        output: outputPath,
-      });
+      const fallbackStrategies = [
+        { extractorArgs: "youtube:player_client=ios" },
+        { extractorArgs: "youtube:player_client=android_music" },
+        { extractorArgs: "youtube:player_client=android" },
+        {},
+        { userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" }
+      ];
+
+      let success = false;
+      let lastError;
+
+      for (const strategy of fallbackStrategies) {
+        try {
+          console.log("🚀 Attempting download with strategy:", JSON.stringify(strategy) || "Standard");
+          await ytDlp(url, {
+            extractAudio: true,
+            audioFormat: "mp3",
+            audioQuality: 0,
+            noPlaylist: true,
+            output: outputPath,
+            ...strategy
+          });
+          success = true;
+          break;
+        } catch (err) {
+          console.log(`⚠️ Download strategy failed: ${err.message.substring(0, 100)}`);
+          lastError = err;
+          // Short delay before next strategy to avoid rate limiting
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+
+      if (!success) {
+        throw new Error(`All download strategies failed: ${lastError.message}`);
+      }
 
       const stats = await fs.stat(outputPath);
       const fileName = `${orderId}.mp3`;
@@ -96,10 +140,10 @@ class YoutubeService {
 
     this.downloadAudio(url).then(result => {
       jobs[orderId] = { status: 'done', fileName: result.fileName, title: result.title };
-      console.log("✅ Job complete:", orderId);
+      console.log(`✅ [Job ${orderId}] Success! File: ${result.fileName}`);
     }).catch(err => {
       jobs[orderId] = { status: 'error', error: err.message };
-      console.log("❌ Job failed:", orderId, err.message);
+      console.error(`❌ [Job ${orderId}] Failed: ${err.message}`);
     });
 
     return orderId;
