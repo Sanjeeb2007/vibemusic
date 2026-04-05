@@ -1,9 +1,11 @@
-// Use system yt-dlp on Linux (Render.com), fallback to npm package on Windows (dev)
-const ytDlp = process.platform === 'linux'
-  ? require('youtube-dl-exec').create('/usr/local/bin/yt-dlp')
-  : require('youtube-dl-exec');
 const path = require("path");
 const fs = require("fs-extra");
+
+// Use local yt-dlp binary on Linux (downloaded during Render.com build), fallback on Windows
+const YTDLP_BIN = path.join(__dirname, '../../bin/yt-dlp');
+const ytDlp = process.platform === 'linux'
+  ? require('youtube-dl-exec').create(YTDLP_BIN)
+  : require('youtube-dl-exec');
 const { v4: uuidv4 } = require("uuid");
 
 const jobs = {}; // 👈 ADD THIS
