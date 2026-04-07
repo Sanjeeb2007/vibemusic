@@ -1,12 +1,60 @@
 const path = require("path");
+const { spawn } = require("child_process");
 
 // Use local yt-dlp binary on Linux (Render), fallback on Windows
-const YTDLP_BIN = path.join(__dirname, '../../bin/yt-dlp');
-const ytDlp = process.platform === 'linux'
-  ? require('youtube-dl-exec').create(YTDLP_BIN)
-  : require('youtube-dl-exec');
+const YTDLP_BIN = process.platform === 'linux'
+  ? path.join(__dirname, '../../bin/yt-dlp')
+  : null;
 
 const COOKIES_PATH = '/tmp/yt-cookies.txt';
+
+// Hard timeout wrapper: kills the yt-dlp child process if it hangs
+function ytDlpWithTimeout(url, args, timeoutMs = 20000) {
+  return new Promise((resolve, reject) => {
+    const bin = YTDLP_BIN || 'yt-dlp';
+    const cliArgs = [url];
+
+    // Convert option object → CLI flags
+    for (const [key, val] of Object.entries(args)) {
+      const flag = '--' + key.replace(/([A-Z])/g, '-$1').toLowerCase();
+      if (val === true) {
+        cliArgs.push(flag);
+      } else if (val !== false && val != null) {
+        cliArgs.push(flag, String(val));
+      }
+    }
+
+    const proc = spawn(bin, cliArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', d => { stdout += d; });
+    proc.stderr.on('data', d => { stderr += d; });
+
+    const timer = setTimeout(() => {
+      proc.kill('SIGKILL');
+      reject(new Error(`yt-dlp timed out after ${timeoutMs / 1000}s`));
+    }, timeoutMs);
+
+    proc.on('close', code => {
+      clearTimeout(timer);
+      if (code === 0) {
+        try {
+          resolve(JSON.parse(stdout));
+        } catch (e) {
+          reject(new Error('Failed to parse yt-dlp JSON output'));
+        }
+      } else {
+        reject(new Error(stderr.trim().split('\n').pop() || `yt-dlp exited with code ${code}`));
+      }
+    });
+
+    proc.on('error', err => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
 
 class YoutubeService {
   constructor() {
@@ -15,25 +63,28 @@ class YoutubeService {
 
   async checkYtDlp() {
     try {
-      await ytDlp('--version');
-      console.log('✅ yt-dlp ready');
+      const bin = YTDLP_BIN || 'yt-dlp';
+      const proc = spawn(bin, ['--version'], { stdio: ['ignore', 'pipe', 'pipe'] });
+      proc.stdout.on('data', d => console.log('✅ yt-dlp version:', d.toString().trim()));
+      proc.on('error', err => console.error('❌ yt-dlp error:', err.message));
     } catch (error) {
-      console.error('❌ yt-dlp error:', error.message);
+      console.error('❌ yt-dlp check failed:', error.message);
     }
   }
 
-  _baseOptions() {
+  _baseArgs() {
     const hasCookies = require('fs').existsSync(COOKIES_PATH);
     return {
+      dumpJson: true,
       noPlaylist: true,
       noCheckCertificates: true,
       jsRuntimes: 'node',
-      socketTimeout: 10,
+      socketTimeout: 8,
       ...(hasCookies ? { cookies: COOKIES_PATH } : {}),
     };
   }
 
-  // Lightweight: only fetches metadata — no audio bytes, no ffmpeg, ~50MB RAM
+  // Lightweight: only fetches metadata — no audio bytes, no ffmpeg
   async getVideoInfo(url) {
     console.log("📖 Getting info for:", url);
 
@@ -47,12 +98,7 @@ class YoutubeService {
     let lastError;
     for (const strategy of strategies) {
       try {
-        const info = await ytDlp(url, {
-          dumpJson: true,
-          ...this._baseOptions(),
-          ...strategy,
-        });
-
+        const info = await ytDlpWithTimeout(url, { ...this._baseArgs(), ...strategy }, 18000);
         return {
           title: info.title,
           duration: parseInt(info.duration) || 0,
@@ -83,13 +129,11 @@ class YoutubeService {
     let lastError;
     for (const strategy of strategies) {
       try {
-        const info = await ytDlp(url, {
-          dumpJson: true,
-          // Request best audio-only: prefer m4a (native on Android/iOS), fallback to any audio
+        const info = await ytDlpWithTimeout(url, {
+          ...this._baseArgs(),
           format: 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
-          ...this._baseOptions(),
           ...strategy,
-        });
+        }, 18000);
 
         // Find the selected format's direct URL
         const audioUrl = info.url
