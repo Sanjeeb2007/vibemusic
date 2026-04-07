@@ -28,7 +28,7 @@ class YoutubeService {
       noPlaylist: true,
       noCheckCertificates: true,
       jsRuntimes: 'node',
-      socketTimeout: 15,
+      socketTimeout: 10,
       ...(hasCookies ? { cookies: COOKIES_PATH } : {}),
     };
   }
