@@ -1,54 +1,37 @@
 const express = require("express");
 const router = express.Router();
-const downloadController = require("../controllers/downloadController");
+const youtubeService = require("../services/youtubeService");
 
-// Test route - MUST be first
 router.get("/test", (req, res) => {
-  console.log("✅ /api/test hit");
-  res.json({
-    message: "API test working!",
-    time: new Date().toISOString(),
-    endpoints: ["/api/info", "/api/download", "/api/stream"],
-  });
+  res.json({ message: "API test working!", time: new Date().toISOString() });
 });
 
-// Get video info
+// Get video metadata only
 router.get("/info", async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: "url query param required" });
   try {
-    await downloadController.getInfo(req, res);
+    const info = await youtubeService.getVideoInfo(url);
+    res.json({ success: true, data: info });
   } catch (err) {
-    console.error("Info error:", err);
+    console.error("Info error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Download audio (POST)
-router.post("/download", async (req, res) => {
+// NEW: Return direct audio stream URL — phone downloads directly, server uses ~50MB RAM
+router.get("/stream-url", async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: "url query param required" });
   try {
-    await downloadController.download(req, res);
+    const result = await youtubeService.getStreamUrl(url);
+    res.json({ success: true, data: result });
   } catch (err) {
-    console.error("Download error:", err);
+    console.error("Stream URL error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-router.get("/status/:orderId", (req, res) => {
-  const youtubeService = require("../services/youtubeService");
-  const job = youtubeService.getJobStatus(req.params.orderId);
-  if (!job) return res.status(404).json({ error: "Job not found" });
-  res.json({ success: true, data: job });
-});
-
-// Stream file
-router.get("/stream/:filename", async (req, res) => {
-  try {
-    await downloadController.stream(req, res);
-  } catch (err) {
-    console.error("Stream error:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-console.log("✅ Routes loaded: /test, /info, /download, /stream");
+console.log("✅ Routes loaded: /test, /info, /stream-url");
 
 module.exports = router;
