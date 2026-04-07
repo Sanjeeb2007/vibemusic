@@ -12,7 +12,8 @@ const ffmpegPath = require('ffmpeg-static');
 const FFMPEG_DIR = ffmpegPath ? path.dirname(ffmpegPath) : null;
 const { v4: uuidv4 } = require("uuid");
 
-const jobs = {}; // 👈 ADD THIS
+const COOKIES_PATH = '/tmp/yt-cookies.txt';
+const jobs = {};
 
 class YoutubeService {
   constructor() {
@@ -39,18 +40,28 @@ class YoutubeService {
     }
   }
 
+  _baseOptions() {
+    const hasCookies = require('fs').existsSync(COOKIES_PATH);
+    return {
+      noPlaylist: true,
+      sleepRequests: '3',
+      noCheckCertificates: true,
+      jsRuntimes: 'node',
+      ...(hasCookies ? { cookies: COOKIES_PATH } : {}),
+      ...(FFMPEG_DIR ? { ffmpegLocation: FFMPEG_DIR } : {}),
+    };
+  }
+
   async getVideoInfo(url) {
     console.log("📖 Getting info for:", url);
 
-    // Player client strategies — tv_embedded and android_embedded bypass bot detection best.
-    // No jsRuntimes path override: let yt-dlp find node/deno automatically on the host.
     const fallbackStrategies = [
       { extractorArgs: "youtube:player_client=tv_embedded" },
       { extractorArgs: "youtube:player_client=android_embedded" },
       { extractorArgs: "youtube:player_client=ios" },
       { extractorArgs: "youtube:player_client=android_music" },
       { extractorArgs: "youtube:player_client=web_embedded" },
-      {}, // default, no override
+      {},
     ];
 
     let lastError;
@@ -58,11 +69,8 @@ class YoutubeService {
       try {
         const info = await ytDlp(url, {
           dumpJson: true,
-          noPlaylist: true,
-          sleepRequests: '2',
-          noCheckCertificates: true,
-          ...(FFMPEG_DIR ? { ffmpegLocation: FFMPEG_DIR } : {}),
-          ...strategy
+          ...this._baseOptions(),
+          ...strategy,
         });
 
         return {
@@ -75,7 +83,7 @@ class YoutubeService {
       } catch (error) {
         console.log(`⚠️ Info strategy failed: ${error.message.substring(0, 120)}`);
         lastError = error;
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 3000));
       }
     }
     console.error("❌ All getVideoInfo strategies failed.");
@@ -110,19 +118,16 @@ class YoutubeService {
             extractAudio: true,
             audioFormat: "mp3",
             audioQuality: 0,
-            noPlaylist: true,
             output: outputPath,
-            sleepRequests: '2',
-            noCheckCertificates: true,
-            ...(FFMPEG_DIR ? { ffmpegLocation: FFMPEG_DIR } : {}),
-            ...strategy
+            ...this._baseOptions(),
+            ...strategy,
           });
           success = true;
           break;
         } catch (err) {
           console.log(`⚠️ Download strategy failed: ${err.message.substring(0, 120)}`);
           lastError = err;
-          await new Promise(r => setTimeout(r, 2000));
+          await new Promise(r => setTimeout(r, 3000));
         }
       }
 

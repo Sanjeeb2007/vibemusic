@@ -73,6 +73,20 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`🌐 Server ready on 0.0.0.0:${PORT}`);
 });
 
+// Write YouTube cookies from env var to temp file (for yt-dlp bot bypass)
+const COOKIES_PATH = '/tmp/yt-cookies.txt';
+if (process.env.YOUTUBE_COOKIES_BASE64) {
+  try {
+    const cookiesContent = Buffer.from(process.env.YOUTUBE_COOKIES_BASE64, 'base64').toString('utf8');
+    require('fs').writeFileSync(COOKIES_PATH, cookiesContent);
+    console.log('🍪 YouTube cookies loaded from environment');
+  } catch (e) {
+    console.warn('⚠️ Failed to write YouTube cookies:', e.message);
+  }
+} else {
+  console.warn('⚠️ YOUTUBE_COOKIES_BASE64 not set — downloads may fail bot detection');
+}
+
 // Load slow services AFTER server starts (background)
 setTimeout(() => {
   console.log("🚀 Loading background services...");
