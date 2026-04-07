@@ -28,6 +28,7 @@ class YoutubeService {
       noPlaylist: true,
       noCheckCertificates: true,
       jsRuntimes: 'node',
+      socketTimeout: 15,
       ...(hasCookies ? { cookies: COOKIES_PATH } : {}),
     };
   }
@@ -38,9 +39,8 @@ class YoutubeService {
 
     const strategies = [
       { extractorArgs: "youtube:player_client=tv_embedded" },
-      { extractorArgs: "youtube:player_client=android_embedded" },
-      { extractorArgs: "youtube:player_client=ios" },
       { extractorArgs: "youtube:player_client=android_music" },
+      { extractorArgs: "youtube:player_client=ios" },
       {},
     ];
 
@@ -63,7 +63,7 @@ class YoutubeService {
       } catch (err) {
         console.log(`⚠️ Info strategy failed: ${err.message.substring(0, 100)}`);
         lastError = err;
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 500));
       }
     }
     throw new Error(`Failed to get video info: ${lastError.message}`);
@@ -75,9 +75,8 @@ class YoutubeService {
 
     const strategies = [
       { extractorArgs: "youtube:player_client=tv_embedded" },
-      { extractorArgs: "youtube:player_client=android_embedded" },
-      { extractorArgs: "youtube:player_client=ios" },
       { extractorArgs: "youtube:player_client=android_music" },
+      { extractorArgs: "youtube:player_client=ios" },
       {},
     ];
 
@@ -114,7 +113,7 @@ class YoutubeService {
       } catch (err) {
         console.log(`⚠️ Stream URL strategy failed: ${err.message.substring(0, 100)}`);
         lastError = err;
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 500));
       }
     }
     throw new Error(`Failed to get stream URL: ${lastError.message}`);
