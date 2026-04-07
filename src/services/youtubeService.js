@@ -42,15 +42,15 @@ class YoutubeService {
   async getVideoInfo(url) {
     console.log("📖 Getting info for:", url);
 
-    // Node.js path so yt-dlp can use it as a JS runtime (fixes "No JS runtime" warning)
-    const nodeRuntime = `node[${process.execPath}]`;
-
+    // Player client strategies — tv_embedded and android_embedded bypass bot detection best.
+    // No jsRuntimes path override: let yt-dlp find node/deno automatically on the host.
     const fallbackStrategies = [
-      { extractorArgs: "youtube:player_client=tv_embedded", jsRuntimes: nodeRuntime },
-      { extractorArgs: "youtube:player_client=ios", jsRuntimes: nodeRuntime },
-      { extractorArgs: "youtube:player_client=android_music", jsRuntimes: nodeRuntime },
-      { extractorArgs: "youtube:player_client=mweb", jsRuntimes: nodeRuntime },
-      { jsRuntimes: nodeRuntime },
+      { extractorArgs: "youtube:player_client=tv_embedded" },
+      { extractorArgs: "youtube:player_client=android_embedded" },
+      { extractorArgs: "youtube:player_client=ios" },
+      { extractorArgs: "youtube:player_client=android_music" },
+      { extractorArgs: "youtube:player_client=web_embedded" },
+      {}, // default, no override
     ];
 
     let lastError;
@@ -59,7 +59,8 @@ class YoutubeService {
         const info = await ytDlp(url, {
           dumpJson: true,
           noPlaylist: true,
-          sleepRequests: '1',
+          sleepRequests: '2',
+          noCheckCertificates: true,
           ...(FFMPEG_DIR ? { ffmpegLocation: FFMPEG_DIR } : {}),
           ...strategy
         });
@@ -72,8 +73,9 @@ class YoutubeService {
           videoId: info.id,
         };
       } catch (error) {
-        console.log(`⚠️ Info strategy failed: ${error.message.substring(0, 100)}`);
+        console.log(`⚠️ Info strategy failed: ${error.message.substring(0, 120)}`);
         lastError = error;
+        await new Promise(r => setTimeout(r, 2000));
       }
     }
     console.error("❌ All getVideoInfo strategies failed.");
@@ -89,13 +91,13 @@ class YoutubeService {
       const info = await this.getVideoInfo(url);
       const outputPath = path.join(this.uploadsDir, `${orderId}.mp3`);
 
-      const nodeRuntime = `node[${process.execPath}]`;
       const fallbackStrategies = [
-        { extractorArgs: "youtube:player_client=tv_embedded", jsRuntimes: nodeRuntime },
-        { extractorArgs: "youtube:player_client=ios", jsRuntimes: nodeRuntime },
-        { extractorArgs: "youtube:player_client=android_music", jsRuntimes: nodeRuntime },
-        { extractorArgs: "youtube:player_client=mweb", jsRuntimes: nodeRuntime },
-        { jsRuntimes: nodeRuntime },
+        { extractorArgs: "youtube:player_client=tv_embedded" },
+        { extractorArgs: "youtube:player_client=android_embedded" },
+        { extractorArgs: "youtube:player_client=ios" },
+        { extractorArgs: "youtube:player_client=android_music" },
+        { extractorArgs: "youtube:player_client=web_embedded" },
+        {},
       ];
 
       let success = false;
@@ -110,17 +112,17 @@ class YoutubeService {
             audioQuality: 0,
             noPlaylist: true,
             output: outputPath,
-            sleepRequests: '1',
+            sleepRequests: '2',
+            noCheckCertificates: true,
             ...(FFMPEG_DIR ? { ffmpegLocation: FFMPEG_DIR } : {}),
             ...strategy
           });
           success = true;
           break;
         } catch (err) {
-          console.log(`⚠️ Download strategy failed: ${err.message.substring(0, 100)}`);
+          console.log(`⚠️ Download strategy failed: ${err.message.substring(0, 120)}`);
           lastError = err;
-          // Short delay before next strategy to avoid rate limiting
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise(r => setTimeout(r, 2000));
         }
       }
 
@@ -154,11 +156,13 @@ class YoutubeService {
     console.log("🚀 Job started:", orderId);
 
     this.downloadAudio(url).then(result => {
-      jobs[orderId] = { status: 'done', fileName: result.fileName, title: result.title };
+      jobs[orderId] = { status: 'done', fileName: result.fileName, title: result.title, completedAt: Date.now() };
       console.log(`✅ [Job ${orderId}] Success! File: ${result.fileName}`);
+      setTimeout(() => { delete jobs[orderId]; }, 10 * 60 * 1000);
     }).catch(err => {
-      jobs[orderId] = { status: 'error', error: err.message };
+      jobs[orderId] = { status: 'error', error: err.message, completedAt: Date.now() };
       console.error(`❌ [Job ${orderId}] Failed: ${err.message}`);
+      setTimeout(() => { delete jobs[orderId]; }, 10 * 60 * 1000);
     });
 
     return orderId;
@@ -187,7 +191,18 @@ class YoutubeService {
         }
       }
 
+      // Purge orphaned job entries whose completedAt is older than maxAgeHours
+      const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
+      let prunedJobs = 0;
+      for (const [id, job] of Object.entries(jobs)) {
+        if (job.completedAt && (now - job.completedAt) > maxAgeMs) {
+          delete jobs[id];
+          prunedJobs++;
+        }
+      }
+
       if (cleaned > 0) console.log(`🧹 Total cleaned: ${cleaned} files`);
+      if (prunedJobs > 0) console.log(`🧹 Pruned ${prunedJobs} stale job entries`);
     } catch (error) {
       console.error("Cleanup error:", error.message);
     }
