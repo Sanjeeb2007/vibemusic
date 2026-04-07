@@ -91,6 +91,25 @@ if (process.env.YOUTUBE_COOKIES_BASE64) {
 setTimeout(() => {
   console.log("🚀 Loading background services...");
   require("./src/utils/fileCleanup");
+
+  // Auto-update yt-dlp binary so it stays current with YouTube's algorithm changes
+  const YTDLP_BIN = process.platform === 'linux'
+    ? path.join(__dirname, 'bin/yt-dlp')
+    : 'yt-dlp';
+
+  const { spawn } = require('child_process');
+  const updateProc = spawn(YTDLP_BIN, ['--update-to', 'stable'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let updateOut = '';
+  updateProc.stdout.on('data', d => { updateOut += d; });
+  updateProc.stderr.on('data', d => { updateOut += d; });
+  updateProc.on('close', code => {
+    const line = updateOut.trim().split('\n').pop() || '';
+    console.log(`🔄 yt-dlp update: ${line}`);
+  });
+  updateProc.on('error', err => {
+    console.warn('⚠️ yt-dlp update failed:', err.message);
+  });
+
   // Pre-load youtube service in background
   const youtubeService = require("./src/services/youtubeService");
   console.log("✅ Background services loaded");
