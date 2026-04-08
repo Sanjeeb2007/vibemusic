@@ -10,7 +10,7 @@ const COOKIES_PATH = '/tmp/yt-cookies.txt';
 
 // Fast URL-only extraction using --print (skips fetching all format metadata)
 // Returns { url, ext } — much faster than --dump-json for stream URL lookups
-function ytDlpPrint(url, args, timeoutMs = 18000) {
+function ytDlpPrint(url, args, timeoutMs = 35000) {
   return new Promise((resolve, reject) => {
     const bin = YTDLP_BIN || 'yt-dlp';
     const cliArgs = [url];
@@ -37,7 +37,7 @@ function ytDlpPrint(url, args, timeoutMs = 18000) {
 
     const timer = setTimeout(() => {
       proc.kill('SIGKILL');
-      reject(new Error(`yt-dlp timed out after ${timeoutMs / 1000}s`));
+      reject(new Error(`Stream URL extraction timed out — please retry`));
     }, timeoutMs);
 
     proc.on('close', code => {
@@ -183,11 +183,15 @@ class YoutubeService {
     let lastError;
     for (const strategy of strategies) {
       try {
+        const baseArgs = this._baseArgs();
+        delete baseArgs.dumpJson; // Fix: Remove dump-json to make --print extremely fast
+        
         const result = await ytDlpPrint(url, {
           format: 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
-          ...this._baseArgs(),
+          forceIpv4: true, // Fix: Prevent IPv6 hanging issues
+          ...baseArgs,
           ...strategy,
-        }, 18000);
+        }, 35000);
 
         if (!result.url) throw new Error('No audio URL in yt-dlp output');
 

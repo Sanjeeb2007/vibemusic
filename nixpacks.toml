@@ -6,4 +6,4 @@ nixPkgs = ["nodejs_20", "python311", "ffmpeg"]
 cmds = ["npm ci"]
 
 [start]
-cmd = "node server.js"
+cmd = "bin/yt-dlp -U --quiet || true && node server.js"
